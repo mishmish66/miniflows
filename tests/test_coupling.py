@@ -17,6 +17,7 @@ from miniflows.coupling_aff import AffineCoupling
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make(flow_dim: int, cond_dim: int = 0, seed: int = 0) -> AffineCoupling:
     """Build an AffineCoupling using mlp_dims (handles cond_dim == 0 too)."""
     in_dim, out_dim = AffineCoupling.mlp_dims(flow_dim, cond_dim)
@@ -29,6 +30,7 @@ def _make(flow_dim: int, cond_dim: int = 0, seed: int = 0) -> AffineCoupling:
 # ---------------------------------------------------------------------------
 # mlp_dims static helper
 # ---------------------------------------------------------------------------
+
 
 def test_mlp_dims_unconditional():
     flow_dim = 4
@@ -46,6 +48,7 @@ def test_mlp_dims_conditional_includes_cond():
 # ---------------------------------------------------------------------------
 # Unconditional — shape / finiteness
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("flow_dim", [4, 6])
 def test_uncond_fwd_shape_finite(flow_dim):
@@ -70,6 +73,7 @@ def test_uncond_inv_shape_finite(flow_dim):
 # ---------------------------------------------------------------------------
 # Unconditional — roundtrip / log-dets cancel / autodiff / id-dims passthrough
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("flow_dim", [4, 6])
 def test_uncond_roundtrip(flow_dim):
@@ -110,6 +114,7 @@ def test_uncond_id_dims_unchanged(flow_dim):
 # ---------------------------------------------------------------------------
 # Conditional — shape / roundtrip / log-dets / autodiff / varies with c
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("flow_dim,cond_dim", [(4, 2), (6, 3)])
 def test_cond_fwd_inv_shape_finite(flow_dim, cond_dim):
@@ -170,6 +175,7 @@ def test_cond_output_varies_with_c(flow_dim, cond_dim):
 # ---------------------------------------------------------------------------
 # MLP-output-shape validation
 # ---------------------------------------------------------------------------
+
 
 def _make_bad(flow_dim: int = 4, seed: int = 0) -> AffineCoupling:
     """Layer whose MLP emits the wrong number of params."""

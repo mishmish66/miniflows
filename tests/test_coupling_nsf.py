@@ -249,6 +249,7 @@ def test_spline_coupling_cond_output_varies_with_c(flow_dim, cond_dim):
 # MLP-output-shape validation
 # ---------------------------------------------------------------------------
 
+
 def _make_bad(flow_dim: int = 4, n_bins: int = N_BINS, seed: int = 0) -> SplineCoupling:
     """Layer whose MLP emits the wrong number of params."""
     in_dim, out_dim = SplineCoupling.mlp_dims(flow_dim, 0, n_bins)
