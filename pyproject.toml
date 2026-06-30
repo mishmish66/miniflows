@@ -9,12 +9,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-cov>=6.0.0",
     "optax>=0.2.4",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "--cov=miniflows --cov-report=term-missing"
 
 [tool.pyright]
 reportMissingSuperCall = false
