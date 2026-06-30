@@ -41,7 +41,7 @@ def make_arspline(key, dim: int = 2, width: int = 64, depth: int = 2) -> ARSplin
         depth=depth,
         rng=key,
     )
-    return ARSpline(net=net, dim=dim, n_bins=N_BINS)
+    return ARSpline(net=net)
 
 
 def arspline_log_prob(model: ARSpline, x):

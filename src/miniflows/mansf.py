@@ -36,8 +36,6 @@ class ARSpline(eqx.Module):
     """Masked-autoregressive RQ spline layer"""
 
     net: CausalMLP
-    dim: int = eqx.field(static=True)
-    n_bins: int = eqx.field(static=True)
     low: float = eqx.field(static=True, default=-5.0)
     high: float = eqx.field(static=True, default=5.0)
 
@@ -49,8 +47,8 @@ class ARSpline(eqx.Module):
         return z, ld.sum()
 
     def inv_logdet(self, z: Float[Array, " d"], c: Float[Array, " c"] | None = None):
-        x = jnp.zeros(self.dim)
-        for i in range(self.dim):
+        x = jnp.zeros(self.net.num_ranks)
+        for i in range(self.net.num_ranks):
             params = self.net(x, c)  # (dim, n_params)
             xi, _ = spline_inv(
                 z[i], params[i], jnp.array(self.low), jnp.array(self.high)

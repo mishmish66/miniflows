@@ -29,7 +29,6 @@ class ARAffine(eqx.Module):
     """
 
     net: CausalMLP
-    dim: int = eqx.field(static=True)
     min_scale: float = eqx.field(static=True, default=1e-3)
 
     def _log_scale(self, s_raw: Float[Array, " d"]) -> Float[Array, " d"]:
@@ -44,8 +43,8 @@ class ARAffine(eqx.Module):
         return z, s.sum()
 
     def inv_logdet(self, z: Float[Array, " d"], c: Float[Array, " c"] | None = None):
-        x = jnp.zeros(self.dim)
-        for i in range(self.dim):
+        x = jnp.zeros(self.net.num_ranks)
+        for i in range(self.net.num_ranks):
             params = self.net(x, c)  # coordinate i reads only x_{<i}, so far set
             s = self._log_scale(params[i, 0])
             x = x.at[i].set((z[i] - params[i, 1]) * jnp.exp(-s))

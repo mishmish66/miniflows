@@ -16,7 +16,7 @@ def make_araffine(key, dim: int = 2, width: int = 64, depth: int = 2) -> ARAffin
         depth=depth,
         rng=key,
     )
-    return ARAffine(net=net, dim=dim)
+    return ARAffine(net=net)
 
 
 def test_araffine_roundtrip():
@@ -65,7 +65,7 @@ def test_araffine_conditioning_changes_output():
         cond_dim=4,
         rng=jr.key(0),
     )
-    m = ARAffine(net=net, dim=dim)
+    m = ARAffine(net=net)
     x = jr.normal(jr.key(1), (dim,))
     c1 = jr.normal(jr.key(2), (4,))
     c2 = jr.normal(jr.key(3), (4,))
