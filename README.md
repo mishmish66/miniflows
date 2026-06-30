@@ -14,8 +14,8 @@ To actually define a flow model usually our bijections would have to be combined
 
 ### Bijectors
 - PLU: PLU decomposed linear bijector ([Glow][glow])
-- CouplingAff: Invertible affine coupling transform with an MLP ([RealNVP][realnvp])
-- CouplingSpline: Invertible spline coupling transform with an MLP ([Neural Spline Flows][nsf])
+- AffineCoupling: Invertible affine coupling transform with an MLP ([RealNVP][realnvp])
+- SplineCoupling: Invertible spline coupling transform with an MLP ([Neural Spline Flows][nsf])
 - ARSpline: Invertible autoregressive spline with a causal MLP ([Neural Spline Flows][nsf] + [MAF][maf])
 - ARAffine: Invertible autoregressive affine with a causal MLP ([MAF][maf])
 
