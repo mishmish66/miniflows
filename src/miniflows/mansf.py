@@ -38,11 +38,16 @@ class ARSpline(eqx.Module):
     net: CausalMLP
     low: float = eqx.field(static=True, default=-5.0)
     high: float = eqx.field(static=True, default=5.0)
+    min_slope: float = eqx.field(static=True, default=1e-3)
 
     def fwd_logdet(self, x: Float[Array, " d"], c: Float[Array, " c"] | None = None):
         params = self.net(x, c)  # (dim,) scalar-per-row -> (dim, n_params)
-        z, ld = jax.vmap(spline_fwd, in_axes=(0, 0, None, None))(
-            x, params, jnp.array(self.low), jnp.array(self.high)
+        z, ld = jax.vmap(spline_fwd, in_axes=(0, 0, None, None, None))(
+            x,
+            params,
+            jnp.array(self.low),
+            jnp.array(self.high),
+            self.min_slope,
         )
         return z, ld.sum()
 
@@ -51,12 +56,20 @@ class ARSpline(eqx.Module):
         for i in range(self.net.num_ranks):
             params = self.net(x, c)  # (dim, n_params)
             xi, _ = spline_inv(
-                z[i], params[i], jnp.array(self.low), jnp.array(self.high)
+                z[i],
+                params[i],
+                jnp.array(self.low),
+                jnp.array(self.high),
+                self.min_slope,
             )
             x = x.at[i].set(xi)
         # log-det of the inverse is minus that of the forward at the solved x
         params = self.net(x, c)
-        _, ld = jax.vmap(spline_fwd, in_axes=(0, 0, None, None))(
-            x, params, jnp.array(self.low), jnp.array(self.high)
+        _, ld = jax.vmap(spline_fwd, in_axes=(0, 0, None, None, None))(
+            x,
+            params,
+            jnp.array(self.low),
+            jnp.array(self.high),
+            self.min_slope,
         )
         return x, -ld.sum()

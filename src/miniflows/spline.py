@@ -129,8 +129,9 @@ def spline_fwd(
     params: Float[Array, " p"],
     low: Float[Array, " #l"],
     high: Float[Array, " #h"],
+    min_slope: float = 1e-3,
 ):
-    spline = RationalQuadraticSpline.decode(params)
+    spline = RationalQuadraticSpline.decode(params, min_slope=min_slope)
     irange = high - low
     yu, ld = spline.fwd_logdet((x - low) / irange)
     return yu * irange + low, ld
@@ -141,8 +142,9 @@ def spline_inv(
     params: Float[Array, " p"],
     low: Float[Array, "  #l"],
     high: Float[Array, " #h"],
+    min_slope: float = 1e-3,
 ):
-    spline = RationalQuadraticSpline.decode(params)
+    spline = RationalQuadraticSpline.decode(params, min_slope=min_slope)
     irange = high - low
     xu, ld = spline.inv_logdet((y - low) / irange)
     return xu * irange + low, ld
