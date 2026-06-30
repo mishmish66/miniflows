@@ -1,4 +1,16 @@
-"""Masked-autoregressive affine flow (MAF)"""
+"""Masked-autoregressive affine flow (MAF).
+
+@inproceedings{papamakarios_masked_2017,
+    title = {Masked {Autoregressive} {Flow} for {Density} {Estimation}},
+    volume = {30},
+    url = {https://proceedings.neurips.cc/paper_files/paper/2017/file/6c1da886822c67822bcf3679d04369fa-Paper.pdf},
+    booktitle = {Advances in {Neural} {Information} {Processing} {Systems}},
+    publisher = {Curran Associates, Inc.},
+    author = {Papamakarios, George and Pavlakou, Theo and Murray, Iain},
+    editor = {Guyon, I. and Luxburg, U. Von and Bengio, S. and Wallach, H. and Fergus, R. and Vishwanathan, S. and Garnett, R.},
+    year = {2017},
+}
+"""
 
 from jaxtyping import Float, Array
 

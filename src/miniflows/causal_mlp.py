@@ -1,3 +1,39 @@
+"""Autoregressive masked linear / MLP, following MADE.
+
+@inproceedings{DBLP:conf/nips/BengioB99,
+  author       = {Yoshua Bengio and
+                  Samy Bengio},
+  editor       = {Sara A. Solla and
+                  Todd K. Leen and
+                  Klaus{-}Robert M{\"{u}}ller},
+  title        = {Modeling High-Dimensional Discrete Data with Multi-Layer Neural Networks},
+  booktitle    = {Advances in Neural Information Processing Systems 12, {[NIPS} Conference,
+                  Denver, Colorado, USA, November 29 - December 4, 1999]},
+  pages        = {400--406},
+  publisher    = {The {MIT} Press},
+  year         = {1999},
+  url          = {http://papers.nips.cc/paper/1679-modeling-high-dimensional-discrete-data-with-multi-layer-neural-networks},
+  timestamp    = {Mon, 16 May 2022 15:41:51 +0200},
+  biburl       = {https://dblp.org/rec/conf/nips/BengioB99.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
+}
+
+@inproceedings{germain_made_2015,
+    address = {Lille, France},
+    series = {Proceedings of {Machine} {Learning} {Research}},
+    title = {{MADE}: {Masked} {Autoencoder} for {Distribution} {Estimation}},
+    volume = {37},
+    url = {https://proceedings.mlr.press/v37/germain15.html},
+    booktitle = {Proceedings of the 32nd {International} {Conference} on {Machine} {Learning}},
+    publisher = {PMLR},
+    author = {Germain, Mathieu and Gregor, Karol and Murray, Iain and Larochelle, Hugo},
+    editor = {Bach, Francis and Blei, David},
+    month = jul,
+    year = {2015},
+    pages = {881--889},
+}
+"""
+
 from collections.abc import Callable
 from typing import Literal
 from itertools import pairwise

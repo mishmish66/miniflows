@@ -1,3 +1,16 @@
+"""Monotone rational-quadratic spline primitives, following Neural Spline Flows.
+
+@inproceedings{durkan_neural_2019,
+    title = {Neural {Spline} {Flows}},
+    url = {https://proceedings.neurips.cc/paper/2019/hash/7ac71d433f282034e088473244df8c02-Abstract.html},
+    booktitle = {Advances in {Neural} {Information} {Processing} {Systems} 32 ({NeurIPS} 2019)},
+    author = {Durkan, Conor and Bekasov, Artur and Murray, Iain and Papamakarios, George},
+    editor = {Wallach, Hanna M. and Larochelle, Hugo and Beygelzimer, Alina and d'Alché-Buc, Florence and Fox, Emily B. and Garnett, Roman},
+    year = {2019},
+    pages = {7509--7520},
+}
+"""
+
 from jaxtyping import Float, Array, jaxtyped
 
 import jax

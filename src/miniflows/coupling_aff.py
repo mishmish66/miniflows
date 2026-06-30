@@ -1,4 +1,14 @@
-"""Affine coupling flow (RealNVP)"""
+"""Affine coupling flow (RealNVP).
+
+@inproceedings{dinh_density_2017,
+    title = {Density estimation using {Real} {NVP}},
+    url = {https://openreview.net/forum?id=HkpbnH9lx},
+    booktitle = {5th {International} {Conference} on {Learning} {Representations} ({ICLR} 2017)},
+    publisher = {OpenReview.net},
+    author = {Dinh, Laurent and Sohl-Dickstein, Jascha and Bengio, Samy},
+    year = {2017},
+}
+"""
 
 from jax import numpy as jnp
 from jax.lax import stop_gradient as sg

@@ -1,4 +1,15 @@
-"""GLOW-style PLU decomposed bijector"""
+"""GLOW-style PLU decomposed bijector.
+
+@inproceedings{kingma_glow_2018,
+    title = {Glow: {Generative} {Flow} with {Invertible} 1x1 {Convolutions}},
+    url = {https://proceedings.neurips.cc/paper/2018/hash/d139db6a236200b21cc7f752979132d0-Abstract.html},
+    booktitle = {Advances in {Neural} {Information} {Processing} {Systems} 31 ({NeurIPS} 2018)},
+    author = {Kingma, Diederik P. and Dhariwal, Prafulla},
+    editor = {Bengio, Samy and Wallach, Hanna M. and Larochelle, Hugo and Grauman, Kristen and Cesa-Bianchi, Nicolò and Garnett, Roman},
+    year = {2018},
+    pages = {10236--10245},
+}
+"""
 
 from jax import numpy as jnp
 from jax import random as jr
