@@ -1,10 +1,9 @@
 [project]
 name = "miniflows"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
-    "equinox>=0.13.8",
-    "jax>=0.10.2",
+    "equinox>=0.12.1",
 ]
 
 [dependency-groups]
