@@ -9,7 +9,7 @@ import equinox as eqx
 from jaxtyping import Float, Array, Key
 
 
-class PLUB(eqx.Module):
+class PLU(eqx.Module):
     """PLU-decomposition linear bijector (GLOW-style invertible mixing)"""
 
     dim: int = eqx.field(static=True)

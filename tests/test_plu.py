@@ -4,7 +4,7 @@ import jax
 from jax import numpy as jnp, random as jr
 import pytest
 
-from miniflows.plu import PLUB
+from miniflows.plu import PLU
 
 
 # ---------------------------------------------------------------------------
@@ -12,8 +12,8 @@ from miniflows.plu import PLUB
 # ---------------------------------------------------------------------------
 
 
-def _make_plub(dim: int, seed: int = 0) -> PLUB:
-    return PLUB(dim, rng=jr.key(seed))
+def _make_plub(dim: int, seed: int = 0) -> PLU:
+    return PLU(dim, rng=jr.key(seed))
 
 
 # ---------------------------------------------------------------------------
