@@ -1,0 +1,25 @@
+[project]
+name = "miniflows"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "equinox>=0.13.8",
+    "jax>=0.10.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "optax>=0.2.4",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.pyright]
+reportMissingSuperCall = false
+extraPaths = ["src"]
+
+[tool.ruff.lint]
+ignore = ["F722", "E741", "E743"]
