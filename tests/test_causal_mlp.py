@@ -81,8 +81,63 @@ def test_causal_mlp_conditioning_changes_output():
     c2 = jr.normal(jr.key(6), (4,))
     out1, out2 = m(x, c1), m(x, c2)
     assert out1.shape == (dim, 2)
-    # coordinate 0 reads nothing, but later coordinates must respond to c
-    assert not jnp.allclose(out1[1:], out2[1:])
+    # every coordinate, including coordinate 0, must respond to c
+    for i in range(dim):
+        assert not jnp.allclose(out1[i], out2[i]), f"coordinate {i} ignores c"
+
+
+def test_causal_mlp_conditional_is_strictly_autoregressive():
+    dim = 4
+    m = CausalMLP(
+        num_ranks=dim,
+        in_rank_dim="scalar",
+        out_rank_dim=3,
+        width=24,
+        depth=2,
+        cond_dim=4,
+        rng=jr.key(7),
+    )
+    x = jr.normal(jr.key(8), (dim,))
+    c = jr.normal(jr.key(9), (4,))
+    # conditioning must not leak x_{>=i} into coordinate i's parameters
+    J = jax.jacobian(lambda x: m(x, c))(x)
+    dep = jnp.abs(J).sum(1)  # (dim, dim): coord i vs input k
+    expected = jnp.tril(jnp.ones((dim, dim)), k=-1)  # strict lower-triangular
+    assert jnp.allclose((dep > 1e-7).astype(float), expected)
+
+
+def _connectivity_mask(lay: CausalLinear):
+    """(in_dim, out_dim) boolean mask of unmasked weights."""
+    return (
+        jnp.zeros((lay.in_dim, lay.out_dim), dtype=bool).at[lay.unmasked_idxs].set(True)
+    )
+
+
+@pytest.mark.parametrize("cond_dim", [None, 4])
+def test_causal_mlp_has_no_dead_hidden_units(cond_dim):
+    # every hidden unit must have a path to some output; the strict read-out
+    # must not orphan an entire rank block of each hidden layer.
+    dim = 5
+    m = CausalMLP(
+        num_ranks=dim,
+        in_rank_dim="scalar",
+        out_rank_dim=2,
+        width=15,
+        depth=2,
+        cond_dim=cond_dim,
+        rng=jr.key(10),
+    )
+    live = jnp.ones(m.layers[-1].out_dim, dtype=bool)
+    for lay in reversed(m.layers):
+        # after this step `live` describes the layer's inputs
+        live = (_connectivity_mask(lay) & live[None, :]).any(axis=1)
+        if lay is not m.layers[0]:
+            assert bool(live.all()), "dead hidden units found"
+    # at the input, only the last coordinate may be unread (AR structure);
+    # conditioner inputs must always be read.
+    assert bool(live[: dim - 1].all())
+    if cond_dim is not None:
+        assert bool(live[dim:].all()), "conditioner inputs are unread"
 
 
 def test_causal_mlp_requires_two_ranks():

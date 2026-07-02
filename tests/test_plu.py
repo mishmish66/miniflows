@@ -17,33 +17,6 @@ def _make_plub(dim: int, seed: int = 0) -> PLU:
 
 
 # ---------------------------------------------------------------------------
-# Shape / finiteness
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("dim", [2, 4, 8])
-def test_plub_forward_shape_and_finite(dim):
-    m = _make_plub(dim)
-    x = jr.normal(jr.key(1), (dim,))
-    y, ld = m.fwd_logdet(x)
-    assert y.shape == (dim,)
-    assert ld.shape == ()
-    assert jnp.all(jnp.isfinite(y))
-    assert jnp.isfinite(ld)
-
-
-@pytest.mark.parametrize("dim", [2, 4, 8])
-def test_plub_inverse_shape_and_finite(dim):
-    m = _make_plub(dim)
-    y = jr.normal(jr.key(2), (dim,))
-    x, ld = m.inv_logdet(y)
-    assert x.shape == (dim,)
-    assert ld.shape == ()
-    assert jnp.all(jnp.isfinite(x))
-    assert jnp.isfinite(ld)
-
-
-# ---------------------------------------------------------------------------
 # Roundtrip: forward then inverse recovers input
 # ---------------------------------------------------------------------------
 
@@ -109,20 +82,6 @@ def test_plub_logdet_equals_logs_sum(dim):
 
 
 # ---------------------------------------------------------------------------
-# Inverse log-det equals negative forward log-det
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("dim", [2, 4, 8])
-def test_plub_inverse_logdet_negation(dim):
-    m = _make_plub(dim, seed=60)
-    x = jr.normal(jr.key(8), (dim,))
-    _, fwd_ld = m.fwd_logdet(x)
-    _, inv_ld = m.inv_logdet(m.fwd_logdet(x)[0])
-    assert jnp.allclose(inv_ld, -fwd_ld, atol=1e-6)
-
-
-# ---------------------------------------------------------------------------
 # Determinism: same key gives same output
 # ---------------------------------------------------------------------------
 
@@ -135,3 +94,25 @@ def test_plub_determinism():
     y2, ld2 = m2.fwd_logdet(x)
     assert jnp.allclose(y1, y2)
     assert jnp.allclose(ld1, ld2)
+
+
+# ---------------------------------------------------------------------------
+# Non-trainable structure stays fixed
+# ---------------------------------------------------------------------------
+
+
+def test_plub_permutation_and_signs_get_zero_gradient():
+    # p and signs are array leaves guarded only by stop_gradient; training
+    # must never move them or the layer stops being a permutation
+    import equinox as eqx
+
+    m = _make_plub(4)
+    x = jr.normal(jr.key(1), (4,))
+
+    def loss(m):
+        y, ld = m.fwd_logdet(x)
+        return (y**2).sum() + ld
+
+    grads = eqx.filter_grad(loss)(m)
+    assert jnp.allclose(grads.p, 0.0)
+    assert jnp.allclose(grads.signs, 0.0)

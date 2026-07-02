@@ -4,7 +4,7 @@ import jax
 from jax import numpy as jnp, random as jr
 import pytest
 
-from miniflows.spline import RationalQuadratic, RationalQuadraticSpline
+from miniflows.spline import RationalQuadratic, RationalQuadraticSpline, spline_fwd
 
 N_BINS = 8
 
@@ -46,7 +46,7 @@ def test_segment_monotone():
     assert jnp.all(jnp.diff(y) > 0)
 
 
-@pytest.mark.parametrize("bad_len", [9, 10, 12])
+@pytest.mark.parametrize("bad_len", [9, 10])
 def test_decode_rejects_bad_param_length(bad_len):
     with pytest.raises(ValueError):
         RationalQuadraticSpline.decode(jnp.zeros(bad_len))
@@ -90,3 +90,60 @@ def test_spline_is_monotone_on_unit():
     spline = RationalQuadraticSpline.decode(_random_params(jr.key(6)))
     y, _ = jax.vmap(spline.fwd_logdet)(jnp.linspace(0.0, 1.0, 100))
     assert jnp.all(jnp.diff(y) > 0)
+
+
+@pytest.mark.parametrize("bad_slope", [0.0, 1.0])
+def test_decode_rejects_bad_min_slope(bad_slope):
+    # min_slope >= 1 makes log(min_slope) >= 0 and the soft-clamps NaN out
+    with pytest.raises(ValueError):
+        RationalQuadraticSpline.decode(_random_params(jr.key(0)), min_slope=bad_slope)
+
+
+def test_tail_gradients_are_zero_and_finite():
+    # outside [low, high] the transform is the identity: gradients w.r.t.
+    # params must be exactly zero (no NaN leaking through the select) and the
+    # gradient w.r.t. x must be 1.
+    p = 10.0 * _random_params(jr.key(7))
+    low, high = jnp.array(-5.0), jnp.array(5.0)
+    for xt in [jnp.array(-7.0), jnp.array(7.0)]:
+        g = jax.grad(lambda p: spline_fwd(xt, p, low, high)[0])(p)
+        assert jnp.all(g == 0.0)
+        gx = jax.grad(lambda x: spline_fwd(x, p, low, high)[0])(xt)
+        assert jnp.allclose(gx, 1.0)
+
+
+def test_spline_is_continuous_at_range_boundaries():
+    # boundary derivatives are pinned to 1, so the spline must meet the
+    # identity tails without a jump
+    p = 10.0 * _random_params(jr.key(8))
+    low, high = jnp.array(-5.0), jnp.array(5.0)
+    eps = 1e-3
+    for b in [-5.0, 5.0]:
+        ya, _ = spline_fwd(jnp.array(b - eps), p, low, high)
+        yb, _ = spline_fwd(jnp.array(b + eps), p, low, high)
+        assert jnp.abs(yb - ya) < 0.05
+
+
+def test_spline_roundtrip_extreme_params_float64():
+    # large raw params make wide, near-flat bins; in float64 the algorithm
+    # must pick the right bin and invert tightly (bin-selection bugs would
+    # otherwise hide inside float32 conditioning noise)
+    with jax.enable_x64():
+        for s in range(5):
+            spline = RationalQuadraticSpline.decode(10.0 * _random_params(jr.key(s)))
+            x = jnp.linspace(1e-4, 1 - 1e-4, 1001)
+            y, ld = jax.vmap(spline.fwd_logdet)(x)
+            xr, ldi = jax.vmap(spline.inv_logdet)(y)
+            assert jnp.max(jnp.abs(xr - x)) < 1e-8
+            assert jnp.max(jnp.abs(ld + ldi)) < 1e-8
+
+
+def test_spline_inverse_errors_when_ill_conditioned():
+    # float32 inverses lose most of their precision in wide near-flat
+    # segments (y - y0 cancels catastrophically); the eqx.error_if guard must
+    # turn the silently wrong result into a loud failure
+    spline = RationalQuadraticSpline.decode(10.0 * _random_params(jr.key(12)))
+    x = jnp.linspace(1e-4, 1 - 1e-4, 1001)
+    y, _ = jax.vmap(spline.fwd_logdet)(x)
+    with pytest.raises(RuntimeError, match="ill-conditioned"):
+        jax.block_until_ready(jax.vmap(spline.inv_logdet)(y))

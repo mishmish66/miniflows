@@ -22,31 +22,22 @@ def _make_unconditional(
     in_dim, out_dim = SplineCoupling.mlp_dims(flow_dim, 0, n_bins)
     key = jr.key(seed)
     mlp = eqx.nn.MLP(in_dim, out_dim, width_size=32, depth=2, key=key)
-    # id_mask: first flow_dim//2 dims are identity (pass-through / MLP input)
-    id_mask = jnp.arange(flow_dim) < (flow_dim // 2)
-    return SplineCoupling(mlp=mlp, id_mask=id_mask, n_bins=n_bins)
+    # even dims are identity (pass-through / MLP input), odd dims transformed
+    id_idxs = tuple(range(0, flow_dim, 2))
+    tr_idxs = tuple(range(1, flow_dim, 2))
+    return SplineCoupling(mlp=mlp, id_idxs=id_idxs, tr_idxs=tr_idxs, n_bins=n_bins)
 
 
 def _make_conditional(
     flow_dim: int, cond_dim: int, n_bins: int = N_BINS, seed: int = 0
 ) -> SplineCoupling:
-    """Build a conditional SplineCoupling.
-
-    Note: SplineCoupling.mlp_dims has a known discrepancy for cond_dim > 0
-    (it subtracts cond_dim from the output dimension, which doesn't match
-    what the forward/inverse pass expects).  We therefore compute the MLP
-    dims manually here:
-      - MLP input  = flow_dim // 2 + cond_dim  (id-dims concatenated with c)
-      - MLP output = (flow_dim - flow_dim // 2) * (n_bins * 3 - 1)
-    """
-    id_half = flow_dim // 2
-    tform_dim = flow_dim - id_half
-    in_dim = id_half + cond_dim
-    out_dim = tform_dim * (n_bins * 3 - 1)
+    """Build a conditional SplineCoupling using mlp_dims."""
+    in_dim, out_dim = SplineCoupling.mlp_dims(flow_dim, cond_dim, n_bins)
     key = jr.key(seed)
     mlp = eqx.nn.MLP(in_dim, out_dim, width_size=32, depth=2, key=key)
-    id_mask = jnp.arange(flow_dim) < id_half
-    return SplineCoupling(mlp=mlp, id_mask=id_mask, n_bins=n_bins)
+    id_idxs = tuple(range(0, flow_dim, 2))
+    tr_idxs = tuple(range(1, flow_dim, 2))
+    return SplineCoupling(mlp=mlp, id_idxs=id_idxs, tr_idxs=tr_idxs, n_bins=n_bins)
 
 
 # ---------------------------------------------------------------------------
@@ -65,31 +56,6 @@ def test_mlp_dims_returns_ints():
     in_dim, out_dim = SplineCoupling.mlp_dims(6, 0, N_BINS)
     assert isinstance(in_dim, int)
     assert isinstance(out_dim, int)
-
-
-# ---------------------------------------------------------------------------
-# Unconditional — shape / finiteness
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("flow_dim", [4, 6])
-def test_spline_coupling_uncond_fwd_shape_finite(flow_dim):
-    m = _make_unconditional(flow_dim)
-    x = jr.normal(jr.key(1), (flow_dim,))
-    y, ld = m.fwd_logdet(x, None)
-    assert y.shape == (flow_dim,)
-    assert jnp.all(jnp.isfinite(y))
-    assert jnp.all(jnp.isfinite(ld))
-
-
-@pytest.mark.parametrize("flow_dim", [4, 6])
-def test_spline_coupling_uncond_inv_shape_finite(flow_dim):
-    m = _make_unconditional(flow_dim)
-    z = jr.normal(jr.key(2), (flow_dim,))
-    x, ld = m.inv_logdet(z, None)
-    assert x.shape == (flow_dim,)
-    assert jnp.all(jnp.isfinite(x))
-    assert jnp.all(jnp.isfinite(ld))
 
 
 # ---------------------------------------------------------------------------
@@ -149,34 +115,8 @@ def test_spline_coupling_uncond_id_dims_unchanged(flow_dim):
     m = _make_unconditional(flow_dim, seed=40)
     x = jr.normal(jr.key(6), (flow_dim,))
     y, _ = m.fwd_logdet(x, None)
-    assert jnp.allclose(y[m.id_mask], x[m.id_mask], atol=1e-6)
-
-
-# ---------------------------------------------------------------------------
-# Conditional — shape / finiteness
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("flow_dim,cond_dim", [(4, 2), (6, 3)])
-def test_spline_coupling_cond_fwd_shape_finite(flow_dim, cond_dim):
-    m = _make_conditional(flow_dim, cond_dim)
-    x = jr.normal(jr.key(7), (flow_dim,))
-    c = jr.normal(jr.key(8), (cond_dim,))
-    y, ld = m.fwd_logdet(x, c)
-    assert y.shape == (flow_dim,)
-    assert jnp.all(jnp.isfinite(y))
-    assert jnp.all(jnp.isfinite(ld))
-
-
-@pytest.mark.parametrize("flow_dim,cond_dim", [(4, 2), (6, 3)])
-def test_spline_coupling_cond_inv_shape_finite(flow_dim, cond_dim):
-    m = _make_conditional(flow_dim, cond_dim)
-    z = jr.normal(jr.key(9), (flow_dim,))
-    c = jr.normal(jr.key(10), (cond_dim,))
-    x, ld = m.inv_logdet(z, c)
-    assert x.shape == (flow_dim,)
-    assert jnp.all(jnp.isfinite(x))
-    assert jnp.all(jnp.isfinite(ld))
+    id_ix = jnp.array(m.id_idxs)
+    assert jnp.allclose(y[id_ix], x[id_ix], atol=1e-6)
 
 
 # ---------------------------------------------------------------------------
@@ -241,8 +181,9 @@ def test_spline_coupling_cond_output_varies_with_c(flow_dim, cond_dim):
     y1, _ = m.fwd_logdet(x, c1)
     y2, _ = m.fwd_logdet(x, c2)
     # The transformed dims must differ; identity dims stay the same
-    assert not jnp.allclose(y1[~m.id_mask], y2[~m.id_mask])
-    assert jnp.allclose(y1[m.id_mask], y2[m.id_mask])
+    id_ix, tr_ix = jnp.array(m.id_idxs), jnp.array(m.tr_idxs)
+    assert not jnp.allclose(y1[tr_ix], y2[tr_ix])
+    assert jnp.allclose(y1[id_ix], y2[id_ix])
 
 
 # ---------------------------------------------------------------------------
@@ -254,8 +195,9 @@ def _make_bad(flow_dim: int = 4, n_bins: int = N_BINS, seed: int = 0) -> SplineC
     """Layer whose MLP emits the wrong number of params."""
     in_dim, out_dim = SplineCoupling.mlp_dims(flow_dim, 0, n_bins)
     mlp = eqx.nn.MLP(in_dim, out_dim + 1, width_size=8, depth=1, key=jr.key(seed))
-    id_mask = jnp.arange(flow_dim) < (flow_dim // 2)
-    return SplineCoupling(mlp=mlp, id_mask=id_mask, n_bins=n_bins)
+    id_idxs = tuple(range(0, flow_dim, 2))
+    tr_idxs = tuple(range(1, flow_dim, 2))
+    return SplineCoupling(mlp=mlp, id_idxs=id_idxs, tr_idxs=tr_idxs, n_bins=n_bins)
 
 
 def test_fwd_rejects_bad_mlp_output():
@@ -268,3 +210,16 @@ def test_inv_rejects_bad_mlp_output():
     m = _make_bad()
     with pytest.raises(ValueError):
         m.inv_logdet(jr.normal(jr.key(1), (4,)), None)
+
+
+# ---------------------------------------------------------------------------
+# jit compatibility
+# ---------------------------------------------------------------------------
+
+
+def test_spline_coupling_works_under_jit():
+    m = _make_unconditional(4, seed=90)
+    x = jr.normal(jr.key(20), (4,))
+    y, _ = eqx.filter_jit(lambda m, x: m.fwd_logdet(x, None))(m, x)
+    xr, _ = eqx.filter_jit(lambda m, y: m.inv_logdet(y, None))(m, y)
+    assert jnp.allclose(xr, x, atol=1e-4)

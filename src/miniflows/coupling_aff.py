@@ -11,17 +11,17 @@
 """
 
 from jax import numpy as jnp
-from jax.lax import stop_gradient as sg
 
 import equinox as eqx
-from jaxtyping import Float, Array, Bool
+from jaxtyping import Float, Array
 
 
 class AffineCoupling(eqx.Module):
     """One RealNVP affine coupling layer."""
 
     mlp: eqx.nn.MLP
-    id_mask: Bool[Array, " d"]
+    id_idxs: tuple[int, ...] = eqx.field(static=True)
+    tr_idxs: tuple[int, ...] = eqx.field(static=True)
     min_scale: float = eqx.field(static=True, default=1e-3)
 
     @staticmethod
@@ -33,11 +33,12 @@ class AffineCoupling(eqx.Module):
     def fwd_logdet(
         self, x: Float[Array, " d"], c: Float[Array, " c"] | None = None
     ) -> tuple[Float[Array, " d"], Float[Array, ""]]:
-        tform_dim = sg(~self.id_mask).sum()
+        id_ix, tr_ix = jnp.array(self.id_idxs), jnp.array(self.tr_idxs)
+        tform_dim = len(self.tr_idxs)
         if c is None:
-            h = x[self.id_mask]
+            h = x[id_ix]
         else:
-            h = jnp.concat([x[self.id_mask], c])
+            h = jnp.concat([x[id_ix], c])
 
         mlp_out = self.mlp(h)
 
@@ -49,17 +50,18 @@ class AffineCoupling(eqx.Module):
         s_raw, t = jnp.split(mlp_out, 2)
         s = s_raw / (1 + jnp.abs(s_raw / jnp.log(self.min_scale)))
 
-        tformed = x[~self.id_mask] * jnp.exp(s) + t
-        return x.at[~self.id_mask].set(tformed), s.sum()
+        tformed = x[tr_ix] * jnp.exp(s) + t
+        return x.at[tr_ix].set(tformed), s.sum()
 
     def inv_logdet(
         self, z: Float[Array, " d"], c: Float[Array, " c"] | None = None
     ) -> tuple[Float[Array, " d"], Float[Array, ""]]:
-        tform_dim = sg(~self.id_mask).sum()
+        id_ix, tr_ix = jnp.array(self.id_idxs), jnp.array(self.tr_idxs)
+        tform_dim = len(self.tr_idxs)
         if c is None:
-            h = z[self.id_mask]
+            h = z[id_ix]
         else:
-            h = jnp.concat([z[self.id_mask], c])
+            h = jnp.concat([z[id_ix], c])
 
         mlp_out = self.mlp(h)
 
@@ -71,5 +73,5 @@ class AffineCoupling(eqx.Module):
         s_raw, t = jnp.split(mlp_out, 2)
         s = s_raw / (1 + jnp.abs(s_raw / jnp.log(self.min_scale)))
 
-        tformed = (z[~self.id_mask] - t) * jnp.exp(-s)
-        return z.at[~self.id_mask].set(tformed), -s.sum()
+        tformed = (z[tr_ix] - t) * jnp.exp(-s)
+        return z.at[tr_ix].set(tformed), -s.sum()

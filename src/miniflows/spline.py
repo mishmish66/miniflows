@@ -62,6 +62,9 @@ class RationalQuadraticSpline(eqx.Module):
                 "layout is B widths, B heights, B-1 interior derivatives"
             )
             raise ValueError(msg)
+        if not 0.0 < min_slope < 1.0:
+            msg = f"min_slope must be in (0, 1), got {min_slope}"
+            raise ValueError(msg)
 
         raw_ws, raw_hs, raw_ds = jnp.array_split(p, 3)
         log_ds = raw_ds / (1 + jnp.abs(raw_ds / jnp.log(min_slope)))
@@ -117,7 +120,15 @@ class RationalQuadraticSpline(eqx.Module):
         w = (y - y0) / (y1 - y0)
         z = seg.inverse(w)
         x = x0 + z * (x1 - x0)
-        ld = -jnp.log(s * seg.dydx(z))
+        slope = s * seg.dydx(z)
+        # rounding in y is amplified by 1/slope; refuse to return an inverse
+        # that has lost more than ~3 decimal digits of the input range
+        msg = (
+            "spline inverse is ill-conditioned (near-flat segment); "
+            "use float64 or a larger min_slope"
+        )
+        x = eqx.error_if(x, y_inside & (slope < 1e3 * jnp.finfo(x.dtype).eps), msg)
+        ld = -jnp.log(slope)
         # apply tails
         x = jax.lax.select(y_inside, x, yu)
         ld = jax.lax.select(y_inside, ld, 0.0)

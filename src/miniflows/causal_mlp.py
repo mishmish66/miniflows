@@ -129,12 +129,15 @@ class CausalMLP(eqx.Module):
             out_rank_dim = 1
 
         # each layer is a (dim, per_row) grid flattened row-major: row r is a
-        # contiguous block of `per_row` units all carrying rank r.
-        per_row = [in_rank_dim] + [width] * depth
-        ranks = [[r for r in range(num_ranks) for _ in range(p)] for p in per_row]
-
+        # contiguous block of units all carrying that row's rank. Coordinates
+        # carry ranks 1..num_ranks and the conditioner carries rank 0, so
+        # rank-0 hidden units read only the conditioner and every coordinate's
+        # read-out, coordinate 0's included, can reach them.
+        in_ranks = [r + 1 for r in range(num_ranks) for _ in range(in_rank_dim)]
         if cond_dim is not None:
-            ranks[0].extend([0] * cond_dim)
+            in_ranks.extend([0] * cond_dim)
+        hidden_ranks = [r for r in range(num_ranks) for _ in range(width)]
+        ranks = [in_ranks] + [hidden_ranks] * depth
 
         # Hidden layers read inclusively (a rank-r unit may use rank-r inputs).
         # CausalLinear compares in_rank < out_rank, so bumping the out-ranks by
@@ -145,10 +148,11 @@ class CausalMLP(eqx.Module):
             incl = [r + 1 for r in ranks_out]
             layers.append(CausalLinear(ranks_in, incl, rng=key))
 
-        # Final read-out stays strict so coordinate r depends only on x_{<r}, and
-        # emits `out_rank_dim` units per coordinate (row-major: row r is its block).
+        # Final read-out stays strict: coordinate r (rank r+1) sees hidden ranks
+        # <= r, which read x_{<r} and the conditioner. Emits `out_rank_dim`
+        # units per coordinate (row-major: row r is its block).
         rng, key = jr.split(rng)
-        ranks_out = [r for r in range(num_ranks) for _ in range(out_rank_dim)]
+        ranks_out = [r + 1 for r in range(num_ranks) for _ in range(out_rank_dim)]
         layers.append(CausalLinear(ranks[-1], ranks_out, rng=key))
 
         self.layers = layers

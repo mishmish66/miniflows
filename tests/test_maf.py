@@ -19,19 +19,12 @@ def make_araffine(key, dim: int = 2, width: int = 64, depth: int = 2) -> ARAffin
     return ARAffine(net=net)
 
 
-def test_araffine_roundtrip():
-    m = make_araffine(jr.key(0))
-    x = jr.normal(jr.key(1), (2,))
-    z, _ = m.fwd_logdet(x)
-    xr, _ = m.inv_logdet(z)
-    assert jnp.allclose(xr, x, atol=1e-4)
-
-
-def test_araffine_forward_inverse_logdets_cancel():
+def test_araffine_roundtrip_and_logdets_cancel():
     m = make_araffine(jr.key(0))
     x = jr.normal(jr.key(1), (2,))
     z, ld = m.fwd_logdet(x)
-    _, ldi = m.inv_logdet(z)
+    xr, ldi = m.inv_logdet(z)
+    assert jnp.allclose(xr, x, atol=1e-4)
     assert jnp.allclose(ld + ldi, 0.0, atol=1e-4)
 
 
@@ -71,5 +64,6 @@ def test_araffine_conditioning_changes_output():
     c2 = jr.normal(jr.key(3), (4,))
     z1, _ = m.fwd_logdet(x, c1)
     z2, _ = m.fwd_logdet(x, c2)
-    # coordinate 0 reads nothing, but later coordinates must respond to c
-    assert not jnp.allclose(z1[1:], z2[1:])
+    # every coordinate, including coordinate 0, must respond to c
+    for i in range(dim):
+        assert not jnp.allclose(z1[i], z2[i]), f"coordinate {i} ignores c"

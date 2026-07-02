@@ -13,10 +13,9 @@
 
 import jax
 from jax import numpy as jnp
-from jax.lax import stop_gradient as sg
 
 import equinox as eqx
-from jaxtyping import Float, Array, Bool
+from jaxtyping import Float, Array
 
 from miniflows.spline import spline_fwd, spline_inv
 
@@ -25,7 +24,8 @@ class SplineCoupling(eqx.Module):
     """One RQ-spline coupling layer"""
 
     mlp: eqx.nn.MLP
-    id_mask: Bool[Array, " d"]
+    id_idxs: tuple[int, ...] = eqx.field(static=True)
+    tr_idxs: tuple[int, ...] = eqx.field(static=True)
 
     n_bins: int = eqx.field(static=True)
 
@@ -39,11 +39,12 @@ class SplineCoupling(eqx.Module):
         return in_dim, out_dim
 
     def fwd_logdet(self, x: Float[Array, " d"], c: Float[Array, " c"] | None):
-        tform_dim = sg(~self.id_mask).sum()
+        id_ix, tr_ix = jnp.array(self.id_idxs), jnp.array(self.tr_idxs)
+        tform_dim = len(self.tr_idxs)
         if c is None:
-            h = x[self.id_mask]
+            h = x[id_ix]
         else:
-            h = jnp.concat([x[self.id_mask], c])
+            h = jnp.concat([x[id_ix], c])
 
         mlp_out = self.mlp(h)
 
@@ -53,18 +54,19 @@ class SplineCoupling(eqx.Module):
             raise ValueError(msg)
 
         params = mlp_out.reshape(tform_dim, -1)
-        for_tform = x[~self.id_mask]
+        for_tform = x[tr_ix]
         tformed, ld = jax.vmap(spline_fwd, in_axes=(0, 0, None, None))(
             for_tform, params, jnp.array(self.low), jnp.array(self.high)
         )
-        return x.at[~self.id_mask].set(tformed), ld
+        return x.at[tr_ix].set(tformed), ld
 
     def inv_logdet(self, z: Float[Array, " d"], c: Float[Array, " c"] | None):
-        tform_dim = sg(~self.id_mask).sum()
+        id_ix, tr_ix = jnp.array(self.id_idxs), jnp.array(self.tr_idxs)
+        tform_dim = len(self.tr_idxs)
         if c is None:
-            h = z[self.id_mask]
+            h = z[id_ix]
         else:
-            h = jnp.concat([z[self.id_mask], c])
+            h = jnp.concat([z[id_ix], c])
         mlp_out = self.mlp(h)
 
         param_dim = tform_dim * (self.n_bins * 3 - 1)
@@ -73,9 +75,9 @@ class SplineCoupling(eqx.Module):
             raise ValueError(msg)
 
         params = mlp_out.reshape(tform_dim, -1)
-        for_tform = z[~self.id_mask]
+        for_tform = z[tr_ix]
         tformed, ld = jax.vmap(spline_inv, in_axes=(0, 0, None, None))(
             for_tform, params, jnp.array(self.low), jnp.array(self.high)
         )
 
-        return z.at[~self.id_mask].set(tformed), ld
+        return z.at[tr_ix].set(tformed), ld
